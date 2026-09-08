@@ -176,8 +176,9 @@ documentation can be found in the GitHub wiki.`,
 			webuiPathPrefix = ctx.String("webui-path-prefix")
 			websitePorts = ctx.StringSlice("website")
 
-			// Resolve relative UNIX socket paths to absolute before any backend
-			// (e.g. posix) can change the working directory via os.Chdir.
+			// Resolve relative UNIX socket paths against the directory the
+			// command was started from, so a later change of working
+			// directory cannot move them.
 			var err error
 			if ports, err = netutil.AbsSocketPaths(ports); err != nil {
 				return err

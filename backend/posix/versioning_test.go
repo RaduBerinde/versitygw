@@ -46,10 +46,6 @@ func newUnversionedGateway(t *testing.T) *Posix {
 // applies first, GetBucketVersioning returns an empty configuration, and
 // PutBucketVersioning is rejected.
 func TestVersioningUnconfigured(t *testing.T) {
-	// New() chdirs into the gateway root; restore the original working
-	// directory when the test completes.
-	t.Chdir(t.TempDir())
-
 	t.Run("get bucket versioning invalid bucket name", func(t *testing.T) {
 		p := newUnversionedGateway(t)
 
@@ -71,7 +67,7 @@ func TestVersioningUnconfigured(t *testing.T) {
 	t.Run("get bucket versioning returns empty config", func(t *testing.T) {
 		p := newUnversionedGateway(t)
 
-		err := os.Mkdir("bucket", 0o755)
+		err := os.Mkdir(p.BucketPath("bucket"), 0o755)
 		assert.NoError(t, err)
 
 		res, err := p.GetBucketVersioning(context.Background(), "bucket")
@@ -91,7 +87,7 @@ func TestVersioningUnconfigured(t *testing.T) {
 	t.Run("put bucket versioning not configured", func(t *testing.T) {
 		p := newUnversionedGateway(t)
 
-		err := os.Mkdir("bucket", 0o755)
+		err := os.Mkdir(p.BucketPath("bucket"), 0o755)
 		assert.NoError(t, err)
 
 		err = p.PutBucketVersioning(context.Background(), "bucket", types.BucketVersioningStatusEnabled)

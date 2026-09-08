@@ -349,8 +349,8 @@ type Config struct {
 
 	// AccessLog is the file path or stream name (stdout, stderr, or - for
 	// stdout) for S3 request access logs in the AWS S3
-	// access log format. Use absolute paths; relative paths may break if the
-	// server changes its working directory. Empty disables file logging.
+	// access log format. A relative path is resolved against the process
+	// working directory. Empty disables file logging.
 	AccessLog string
 	// LogWebhookURL is an HTTP(S) URL that receives S3 access log entries as
 	// JSON-encoded POST requests. Can be set alongside AccessLog.

@@ -62,10 +62,6 @@ type ScoutFS struct {
 	// copies of temporary multipart parts.
 	disableNoArchive bool
 
-	// enable posix level bucket name validations, not needed if the
-	// frontend handlers are already validating bucket names
-	validateBucketName bool
-
 	// projectIDEnabled enables setting projectid of new buckets and objects
 	// to the account project id when non-0
 	projectIDEnabled bool
@@ -177,7 +173,7 @@ func (s *ScoutFS) CreateBucket(ctx context.Context, input *s3.CreateBucketInput,
 			return nil
 		}
 
-		f, err := os.Open(*input.Bucket)
+		f, err := os.Open(s.BucketPath(*input.Bucket))
 		if err != nil {
 			debuglogger.InternalError(fmt.Errorf("create bucket %q set project id - open: %v",
 				*input.Bucket, err))
@@ -202,7 +198,7 @@ func (s *ScoutFS) HeadObject(ctx context.Context, input *s3.HeadObjectInput) (*s
 	}
 
 	if s.glaciermode {
-		objPath := filepath.Join(*input.Bucket, *input.Key)
+		objPath := s.ObjectPath(*input.Bucket, *input.Key)
 
 		stclass := types.StorageClassStandard
 		requestOngoing := stageComplete
@@ -332,11 +328,7 @@ func (s *ScoutFS) CompleteMultipartUpload(ctx context.Context, input *s3.Complet
 }
 
 func (s *ScoutFS) isBucketValid(bucket string) bool {
-	if !s.validateBucketName {
-		return true
-	}
-
-	return backend.IsValidDirectoryName(bucket)
+	return s.Posix.IsBucketValid(bucket)
 }
 
 func (s *ScoutFS) GetObject(ctx context.Context, input *s3.GetObjectInput) (*s3.GetObjectOutput, error) {
@@ -347,7 +339,7 @@ func (s *ScoutFS) GetObject(ctx context.Context, input *s3.GetObjectInput) (*s3.
 		return nil, s3err.GetBucketErr(s3err.ErrInvalidBucketName, bucket)
 	}
 
-	_, err := os.Stat(bucket)
+	_, err := os.Stat(s.BucketPath(bucket))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, s3err.GetBucketErr(s3err.ErrNoSuchBucket, *input.Bucket)
 	}
@@ -355,7 +347,7 @@ func (s *ScoutFS) GetObject(ctx context.Context, input *s3.GetObjectInput) (*s3.
 		return nil, fmt.Errorf("stat bucket: %w", err)
 	}
 
-	objPath := filepath.Join(bucket, object)
+	objPath := s.ObjectPath(bucket, object)
 
 	fi, err := os.Stat(objPath)
 	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
@@ -415,7 +407,7 @@ func (s *ScoutFS) glacierFileToObj(bucket string, fetchOwner bool) backend.GetOb
 		if err != nil || d.IsDir() {
 			return res, err
 		}
-		objPath := filepath.Join(bucket, path)
+		objPath := s.ObjectPath(bucket, path)
 		// Check if there are any offline exents associated with this file.
 		// If so, we will return the Glacier storage class
 		st, err := scoutfs.StatMore(objPath)
@@ -442,7 +434,7 @@ func (s *ScoutFS) RestoreObject(_ context.Context, input *s3.RestoreObjectInput)
 		return s3err.GetBucketErr(s3err.ErrInvalidBucketName, bucket)
 	}
 
-	_, err := os.Stat(bucket)
+	_, err := os.Stat(s.BucketPath(bucket))
 	if errors.Is(err, fs.ErrNotExist) {
 		return s3err.GetBucketErr(s3err.ErrNoSuchBucket, *input.Bucket)
 	}
@@ -450,7 +442,7 @@ func (s *ScoutFS) RestoreObject(_ context.Context, input *s3.RestoreObjectInput)
 		return fmt.Errorf("stat bucket: %w", err)
 	}
 
-	err = setStaging(filepath.Join(bucket, object))
+	err = setStaging(s.ObjectPath(bucket, object))
 	if errors.Is(err, fs.ErrNotExist) {
 		return s3err.GetAPIError(s3err.ErrNoSuchKey)
 	}

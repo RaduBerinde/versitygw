@@ -45,3 +45,17 @@ type MetadataStorer interface {
 	// directory for an object is renamed so that metadata stays in sync.
 	RenameObject(bucket, oldObject, newObject string) error
 }
+
+// RootDirSetter is implemented by metadata storers that keep metadata on the
+// bucket and object files themselves and therefore need to know where those
+// files live. The backend calls WithRootDir with the absolute path of its
+// root directory before using the storer; the returned storer resolves bucket
+// names against that directory instead of the process working directory.
+// Storers that keep metadata elsewhere (SideCar, NoMeta) do not implement it.
+//
+// A type that embeds XattrMeta inherits its WithRootDir, which returns a bare
+// XattrMeta and so drops the outer type; such a type must provide its own
+// WithRootDir.
+type RootDirSetter interface {
+	WithRootDir(rootdir string) MetadataStorer
+}
